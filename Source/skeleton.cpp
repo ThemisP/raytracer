@@ -207,7 +207,12 @@ bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles
 			vec3 b = vec3(start.x - v0.x, start.y - v0.y, start.z - v0.z);
 			mat3 A(-direction, e1, e2);
 			vec3 x = glm::inverse(A) * b;
-			if (x.x >= 0) {
+			float div = glm::determinant(mat3(-direction, -e1, -e2));
+			float t = glm::determinant(mat3(-start, -e1, -e2))/div;
+			
+			if (x.x>0) {
+				float u = glm::determinant(mat3(-direction, -start, -e2))/div;
+				float v = glm::determinant(mat3(-direction, -e1, -start))/div;
 				if (0 <= x.y && 0 <= x.z && (x.y + x.z) <= 1) {
 					//intersection
 					if (closestIntersection.distance > x.x) {
