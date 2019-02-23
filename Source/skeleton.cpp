@@ -50,10 +50,11 @@ void TranslateX(float amount);
 void TranslateY(float amount);
 void TranslateZ(float amount);
 vec3 DirectLight(const Intersection& i);
+float determinantFind(vec3 a, vec3 b, vec3 c);
 
 int main(int argc, char* argv[]) {
 	screen *screen = InitializeSDL(SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE);
-	LoadTestModel(testScene);
+	LoadTerrainGeneration(testScene, 20, 20);
 	vec4 matr1(1,0,0,0);
 	vec4 matr2(0,1,0,0);
 	vec4 matr3(0,0,1,0);
@@ -141,6 +142,19 @@ bool Update() {
 			case SDLK_q:
 				lightPos.y += 0.5f;
 				break;
+			case SDLK_i://up
+				TranslateZ(0.5);
+				break;
+			case SDLK_k://down
+				TranslateZ(-0.5);
+				break;
+			case SDLK_j://left
+				TranslateX(0.5);
+				break;
+			case SDLK_l://right
+				TranslateX(-0.5);
+				break;
+
 
 			case SDLK_ESCAPE:
 				/* Move camera quit */
@@ -150,8 +164,6 @@ bool Update() {
 	}
 	return true;
 }
-
-
 
 vec4 calcDir(int x, int y, vec4 u, vec4 v, vec4 w) {
 	float dx = (x - SCREEN_WIDTH * 0.5f)*u.x + (SCREEN_HEIGHT*0.5f - y)*v.x - focalLength;
@@ -196,7 +208,7 @@ bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles
 	bool result = false;
 	float length = glm::length(dir);
 	vec4 direction(dir.x / length, dir.y / length, dir.z / length, 1);
-	for (int i = 0; i < triangles.size(); i++) {
+	for (size_t i = 0; i < triangles.size(); i++) {
 		if (i != exclude) {
 			Triangle triangle = triangles[i];
 			vec4 v0 = triangle.v0;
@@ -205,28 +217,34 @@ bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles
 			vec3 e1 = vec3(v1.x - v0.x, v1.y - v0.y, v1.z - v0.z);
 			vec3 e2 = vec3(v2.x - v0.x, v2.y - v0.y, v2.z - v0.z);
 			vec3 b = vec3(start.x - v0.x, start.y - v0.y, start.z - v0.z);
-			mat3 A(-direction, e1, e2);
-			vec3 x = glm::inverse(A) * b;
-			float div = glm::determinant(mat3(-direction, -e1, -e2));
-			float t = glm::determinant(mat3(-start, -e1, -e2))/div;
-			
-			if (x.x>0) {
-				float u = glm::determinant(mat3(-direction, -start, -e2))/div;
-				float v = glm::determinant(mat3(-direction, -e1, -start))/div;
-				if (0 <= x.y && 0 <= x.z && (x.y + x.z) <= 1) {
-					//intersection
-					if (closestIntersection.distance > x.x) {
-						closestIntersection.distance = x.x;
-						closestIntersection.triangleIndex = i;
-						closestIntersection.position = start + direction * x.x;
+
+			float det = glm::determinant(mat3(-direction, e1, e2));
+			if (det != 0) {
+				float t = glm::determinant(mat3(b, e1, e2))/det;
+				if (t >= 0) {
+					float u = glm::determinant(mat3(-direction, b, e2)) / det;
+					float v = glm::determinant(mat3(-direction, e1, b)) / det;
+					if (0 <= u && 0 <= v && (u + v) <= 1) {
+						//intersection
+						if (closestIntersection.distance > t) {
+							closestIntersection.distance = t;
+							closestIntersection.triangleIndex = i;
+							closestIntersection.position = start + direction * t;
+						}
+						result = true;
 					}
-					result = true;
 				}
 			}
+			
+			
 		}
 	}
 	return result;
 	
+}
+
+float determinantFind(vec3 a,vec3 b,vec3 c) {
+	return -glm::dot(glm::cross(a, c),b);
 }
 
 vec3 DirectLight(const Intersection& i) {
@@ -255,6 +273,7 @@ vec3 DirectLight(const Intersection& i) {
 }
 
 void TranslateX(float amount) {
+
 	cameraRotMatrix[3][0] += amount;
 }
 

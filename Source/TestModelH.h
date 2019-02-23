@@ -34,6 +34,55 @@ public:
 	}
 };
 
+void LoadTerrainGeneration(std::vector<Triangle>& triangles, int xSize, int zSize) {
+	using glm::vec3;
+	using glm::vec4;
+
+	// Defines colors:
+	vec3 red(0.75f, 0.15f, 0.15f);
+	vec3 yellow(0.75f, 0.75f, 0.15f);
+	vec3 green(0.15f, 0.75f, 0.15f);
+	vec3 cyan(0.15f, 0.75f, 0.75f);
+	vec3 blue(0.15f, 0.15f, 0.75f);
+	vec3 purple(0.75f, 0.15f, 0.75f);
+	vec3 white(0.75f, 0.75f, 0.75f);
+
+	triangles.clear();
+	triangles.reserve(20);
+
+	std::vector<vec4> vertices;
+	vertices.clear();
+	vertices.reserve((xSize + 1)*(zSize + 1));
+	int i = 0;
+	for (int z = 0; z <= zSize; z++) {
+		for (int x = 0; x <= xSize; x++) {
+			float random = ((float)rand() / (float)(RAND_MAX))*0.5 +1; 
+			vertices[i] = vec4((x - xSize/2)*0.2, random, (z - zSize / 2)*0.2, 1);
+			i++;
+		}
+	}
+
+	int vert = 0;
+	for (int z = 0; z < zSize; z++) {
+		for (int x = 0; x < xSize; x++) {
+			vec4 a = vertices[vert];
+			vec4 b = vertices[vert + 1];
+			vec4 c = vertices[vert + xSize + 1];
+
+			triangles.push_back(Triangle(a, b, c, green));
+
+			vec4 d = vertices[vert + 1];
+			vec4 e = vertices[vert + xSize + 1];
+			vec4 f = vertices[vert + xSize + 2];
+
+			triangles.push_back(Triangle(d, e, f, red));
+			vert++;
+		}
+		vert++;
+	}
+
+}
+
 // Loads the Cornell Box. It is scaled to fill the volume:
 // -1 <= x <= +1
 // -1 <= y <= +1
