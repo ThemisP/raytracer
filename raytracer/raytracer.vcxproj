@@ -124,6 +124,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\Source\SDLauxiliary.h" />
+    <ClInclude Include="..\Source\Settings.h" />
     <ClInclude Include="..\Source\TestModelH.h" />
   </ItemGroup>
   <ItemGroup>

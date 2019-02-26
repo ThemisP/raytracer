@@ -3,6 +3,7 @@
 #include <SDL.h>
 #include "SDLauxiliary.h"
 #include "TestModelH.h"
+#include "Settings.h"
 #include <stdint.h>
 #include <limits>
 
@@ -14,8 +15,10 @@ using glm::mat4;
 
 SDL_Event event;
 
-#define SCREEN_WIDTH 320
-#define SCREEN_HEIGHT 256
+//#define SCREEN_WIDTH 320
+//#define SCREEN_HEIGHT 256
+#define SCREEN_WIDTH 1024
+#define SCREEN_HEIGHT 720
 #define FULLSCREEN_MODE false
 
 struct Intersection
@@ -41,6 +44,7 @@ bool Update();
 void Draw(screen* screen);
 bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles, Intersection& closestIntersection, int = (-1));
 void RayTracer(screen* screen);
+vec3 RayTraceColor(float x, float y);
 void LookAt(const vec3 &from, const vec3 &to);
 vec4 calcDir(int x, int y, vec4 u, vec4 v, vec4 w);
 mat3 RotX(float angle);
@@ -54,7 +58,7 @@ float determinantFind(vec3 a, vec3 b, vec3 c);
 
 int main(int argc, char* argv[]) {
 	screen *screen = InitializeSDL(SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE);
-	LoadTerrainGeneration(testScene, 20, 20);
+	LoadTestModel(testScene);
 	vec4 matr1(1,0,0,0);
 	vec4 matr2(0,1,0,0);
 	vec4 matr3(0,0,1,0);
@@ -143,16 +147,16 @@ bool Update() {
 				lightPos.y += 0.5f;
 				break;
 			case SDLK_i://up
-				TranslateZ(0.5);
+				TranslateZ(10);
 				break;
 			case SDLK_k://down
-				TranslateZ(-0.5);
+				TranslateZ(-10);
 				break;
 			case SDLK_j://left
-				TranslateX(0.5);
+				TranslateX(10);
 				break;
 			case SDLK_l://right
-				TranslateX(-0.5);
+				TranslateX(-10);
 				break;
 
 
@@ -175,32 +179,46 @@ vec4 calcDir(int x, int y, vec4 u, vec4 v, vec4 w) {
 }
 
 void RayTracer(screen* screen) {
-	//vec4 right(cameraRotMatrix[0][0], cameraRotMatrix[0][1], cameraRotMatrix[0][2], 1);
-	//vec4 down(cameraRotMatrix[1][0], cameraRotMatrix[1][1], cameraRotMatrix[1][2], 1);
-	//vec4 forward(cameraRotMatrix[2][0], cameraRotMatrix[2][1], cameraRotMatrix[2][2], 1);
+	int anti_aliasing = Settings::anti_aliasing_level;
+
 	for (int y = 0; y < SCREEN_HEIGHT; y++) {
 		for (int x = 0; x < SCREEN_WIDTH; x++) {
-			
+			if (Settings::anti_aliasing) {
+				vec3 color(0, 0, 0);
 
-			vec4 dir(x - SCREEN_WIDTH * 0.5, y - SCREEN_HEIGHT * 0.5, focalLength, 1);
-			dir = cameraRotMatrix *dir;
-			//vec4 dir = calcDir(x, y, right, down, forward);
-			Intersection ClosestIntersectionItem;
-
-			
-			
-			if (ClosestIntersection(camera, dir, testScene, ClosestIntersectionItem)) {
-				vec3 color = testScene[ClosestIntersectionItem.triangleIndex].color * 
-						(DirectLight(ClosestIntersectionItem) + indirectLight);
+				float step = 1 / ((float)anti_aliasing * 2);
+				for (int x_sample = -anti_aliasing; x_sample <= anti_aliasing; x_sample++) {
+					for (int y_sample = -anti_aliasing; y_sample <= anti_aliasing; y_sample++) {
+						color += RayTraceColor(x + step * x_sample, y + step * y_sample);
+					}
+				}
+				color = color / ((float)(anti_aliasing * 2 + 1)*(anti_aliasing * 2 + 1));
+				//color = RayTraceColor(x ,y);
 				PutPixelSDL(screen, x, y, color);
 			} else {
-				vec3 color(0, 0, 0);
+				vec3 color = RayTraceColor(x, y);
 				PutPixelSDL(screen, x, y, color);
 			}
 
 		}
 	}
 
+}
+
+vec3 RayTraceColor(float x, float y) {
+	vec4 dir(x - SCREEN_WIDTH * 0.5f, y - SCREEN_HEIGHT * 0.5f, focalLength, 1);
+	dir = cameraRotMatrix * dir;
+	Intersection ClosestIntersectionItem;
+
+
+
+	if (ClosestIntersection(camera, dir, testScene, ClosestIntersectionItem)) {
+		vec3 color = testScene[ClosestIntersectionItem.triangleIndex].color *
+			(DirectLight(ClosestIntersectionItem) + indirectLight);
+		return color;
+	} else {
+		return vec3(0, 0, 0);
+	}
 }
 
 bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles, Intersection& closestIntersection, int exclude) {

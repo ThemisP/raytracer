@@ -21,6 +21,9 @@
     <ClInclude Include="..\Source\TestModelH.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\Source\Settings.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Source\skeleton.cpp">
