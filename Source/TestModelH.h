@@ -15,9 +15,17 @@ public:
 	glm::vec4 v2;
 	glm::vec4 normal;
 	glm::vec3 color;
+	float reflectance;
+	float ior;
 
-	Triangle( glm::vec4 v0, glm::vec4 v1, glm::vec4 v2, glm::vec3 color )
-		: v0(v0), v1(v1), v2(v2), color(color)
+	Triangle(glm::vec4 v0, glm::vec4 v1, glm::vec4 v2, glm::vec3 color)
+		: v0(v0), v1(v1), v2(v2), color(color), reflectance(0), ior(0)
+	{
+		ComputeNormal();
+	}
+
+	Triangle( glm::vec4 v0, glm::vec4 v1, glm::vec4 v2, glm::vec3 color, float reflectance, float ior)
+		: v0(v0), v1(v1), v2(v2), color(color), reflectance(reflectance), ior(ior)
 	{
 		ComputeNormal();
 	}
@@ -69,13 +77,13 @@ void LoadTerrainGeneration(std::vector<Triangle>& triangles, int xSize, int zSiz
 			vec4 b = vertices[vert + 1];
 			vec4 c = vertices[vert + xSize + 1];
 
-			triangles.push_back(Triangle(a, b, c, green));
+			triangles.push_back(Triangle(a, b, c, green, 0, 0));
 
 			vec4 d = vertices[vert + 1];
 			vec4 e = vertices[vert + xSize + 1];
 			vec4 f = vertices[vert + xSize + 2];
 
-			triangles.push_back(Triangle(d, e, f, red));
+			triangles.push_back(Triangle(d, e, f, red, 0, 0));
 			vert++;
 		}
 		vert++;
@@ -152,25 +160,27 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	G = vec4(240,165,272,1);
 	H = vec4( 82,165,225,1);
 
+	float redReflectiveness = 0.4f;
+	float redIor = 0.0f;
 	// Front
-	triangles.push_back( Triangle(E,B,A,red) );
-	triangles.push_back( Triangle(E,F,B,red) );
+	triangles.push_back( Triangle(E,B,A,red, redReflectiveness, redIor) );
+	triangles.push_back( Triangle(E,F,B,red, redReflectiveness, redIor) );
 
 	// Front
-	triangles.push_back( Triangle(F,D,B,red) );
-	triangles.push_back( Triangle(F,H,D,red) );
+	triangles.push_back( Triangle(F,D,B,red, redReflectiveness, redIor) );
+	triangles.push_back( Triangle(F,H,D,red, redReflectiveness, redIor) );
 
 	// BACK
-	triangles.push_back( Triangle(H,C,D,red) );
-	triangles.push_back( Triangle(H,G,C,red) );
+	triangles.push_back( Triangle(H,C,D,red, redReflectiveness, redIor) );
+	triangles.push_back( Triangle(H,G,C,red, redReflectiveness, redIor) );
 
 	// LEFT
-	triangles.push_back( Triangle(G,E,C,red) );
-	triangles.push_back( Triangle(E,A,C,red) );
+	triangles.push_back( Triangle(G,E,C,red, redReflectiveness, redIor) );
+	triangles.push_back( Triangle(E,A,C,red, redReflectiveness, redIor) );
 
 	// TOP
-	triangles.push_back( Triangle(G,F,E,red) );
-	triangles.push_back( Triangle(G,H,F,red) );
+	triangles.push_back( Triangle(G,F,E,red, redReflectiveness, redIor) );
+	triangles.push_back( Triangle(G,H,F,red, redReflectiveness, redIor) );
 
 	// ---------------------------------------------------------------------------
 	// Tall block
@@ -185,25 +195,27 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	G = vec4(472,330,406,1);
 	H = vec4(314,330,456,1);
 
+	float blueReflectiveness = 0.8f;
+	float blueIor = 0.0f;
 	// Front
-	triangles.push_back( Triangle(E,B,A,blue) );
-	triangles.push_back( Triangle(E,F,B,blue) );
+	triangles.push_back( Triangle(E,B,A,blue, blueReflectiveness, blueIor) );
+	triangles.push_back( Triangle(E,F,B,blue, blueReflectiveness, blueIor) );
 
 	// Front
-	triangles.push_back( Triangle(F,D,B,blue) );
-	triangles.push_back( Triangle(F,H,D,blue) );
+	triangles.push_back( Triangle(F,D,B,blue, blueReflectiveness, blueIor) );
+	triangles.push_back( Triangle(F,H,D,blue, blueReflectiveness, blueIor) );
 
 	// BACK
-	triangles.push_back( Triangle(H,C,D,blue) );
-	triangles.push_back( Triangle(H,G,C,blue) );
+	triangles.push_back( Triangle(H,C,D,blue, blueReflectiveness, blueIor) );
+	triangles.push_back( Triangle(H,G,C,blue, blueReflectiveness, blueIor) );
 
 	// LEFT
-	triangles.push_back( Triangle(G,E,C,blue) );
-	triangles.push_back( Triangle(E,A,C,blue) );
+	triangles.push_back( Triangle(G,E,C,blue, blueReflectiveness, blueIor) );
+	triangles.push_back( Triangle(E,A,C,blue, blueReflectiveness, blueIor) );
 
 	// TOP
-	triangles.push_back( Triangle(G,F,E,blue) );
-	triangles.push_back( Triangle(G,H,F,blue) );
+	triangles.push_back( Triangle(G,F,E,blue, blueReflectiveness, blueIor) );
+	triangles.push_back( Triangle(G,H,F,blue, blueReflectiveness, blueIor) );
 
 
 	// ----------------------------------------------

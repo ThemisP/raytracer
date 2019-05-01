@@ -40,6 +40,13 @@ vec4 lightPos(0, -0.5, -0.7, 1.0);
 vec3 lightColor = 14.0f*vec3(1, 1, 1);
 vec3 indirectLight = 0.5f*vec3(1, 1, 1);
 
+//Sphere
+vec4 sphereCenter(0, 0, -1, 1);
+float sphereRadious = 0.2f;
+vec3 sphereColor(0, 0, 0);
+float sphereReflectance = 1.0f;
+float sphereIor = 1.5f;
+
 bool Update();
 void Draw(screen* screen);
 bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles, Intersection& closestIntersection, int = (-1));
@@ -55,6 +62,9 @@ void TranslateY(float amount);
 void TranslateZ(float amount);
 vec3 DirectLight(const Intersection& i);
 float determinantFind(vec3 a, vec3 b, vec3 c);
+vec3 Fresnel(vec4 startPos, vec4 Incidence, vec4 Normal, float ior, int excludeIndex, int depth);
+vec3 RefractRayColor(vec4 startPos, vec4 Incidence, vec4 Normal, float ior, int excludeIndex, int depth);
+vec3 ReflectRayColor(vec4 startPos, vec4 incident, vec4 normal, int depth, int excludeIndex);
 
 int main(int argc, char* argv[]) {
 	screen *screen = InitializeSDL(SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE);
@@ -210,12 +220,136 @@ vec3 RayTraceColor(float x, float y) {
 	dir = cameraRotMatrix * dir;
 	Intersection ClosestIntersectionItem;
 
-
-
 	if (ClosestIntersection(camera, dir, testScene, ClosestIntersectionItem)) {
-		vec3 color = testScene[ClosestIntersectionItem.triangleIndex].color *
-			(DirectLight(ClosestIntersectionItem) + indirectLight);
-		return color;
+		if (ClosestIntersectionItem.triangleIndex != -1) {
+			float reflectance = testScene[ClosestIntersectionItem.triangleIndex].reflectance;
+			
+				vec3 color = (1 - reflectance)*(testScene[ClosestIntersectionItem.triangleIndex].color *
+					(DirectLight(ClosestIntersectionItem) + indirectLight))
+					+ reflectance * (Fresnel(ClosestIntersectionItem.position, dir, testScene[ClosestIntersectionItem.triangleIndex].normal, testScene[ClosestIntersectionItem.triangleIndex].ior, ClosestIntersectionItem.triangleIndex, Settings::frenel_depth));
+				return color;
+			
+		} else {
+				vec4 Normal = vec4(glm::normalize((vec3)(ClosestIntersectionItem.position - sphereCenter)), 1);
+				vec3 color = (1 - sphereReflectance)*(sphereColor *
+					(DirectLight(ClosestIntersectionItem) + indirectLight))
+					+ sphereReflectance * (Fresnel(ClosestIntersectionItem.position, dir, Normal, sphereIor, ClosestIntersectionItem.triangleIndex, Settings::frenel_depth));
+				return color;
+			
+		}
+	} else {
+		return vec3(0, 0, 0);
+	}
+}
+
+vec3 Fresnel(vec4 startPos, vec4 Incidence, vec4 Normal, float ior, int excludeIndex, int depth) {
+	if (!(ior > 0)) return ReflectRayColor(startPos, Incidence, Normal, depth, excludeIndex);
+	vec3 I = Incidence;
+	vec3 N = Normal;
+	float cosI = std::fmaxf(-1,std::fminf(glm::dot(I, N),1));//clamp function
+	float etai = 1, etat = ior;
+
+	if (cosI > 0) {
+		std::swap(etai, etat); N = -N;
+	} else cosI = -cosI;
+	//Snell's law (sinI)
+	float sinT = etai / etat * sqrtf(std::fmaxf(0.f, 1 - cosI * cosI));
+	float kr;
+	//TotalInternal reflection
+	if (sinT >= 1) {
+		kr = 1;
+		vec3 reflectionColor = ReflectRayColor(startPos, Incidence, vec4(N,1), depth, excludeIndex);
+		return reflectionColor;
+	} else {
+		float cosT = sqrtf(std::fmaxf(0.f, 1 - sinT * sinT));
+		cosI = fabsf(cosI);
+		float Rs = ((etat * cosI) - (etai * cosT)) / ((etat * cosI) + (etai * cosT));
+		float Rp = ((etai * cosI) - (etat * cosT)) / ((etai * cosI) + (etat * cosT));
+		kr = (Rs * Rs + Rp * Rp) / 2;
+		vec3 refractionColor = RefractRayColor(startPos, Incidence, vec4(N, 1), ior, excludeIndex, depth);
+		vec3 reflectionColor = ReflectRayColor(startPos, Incidence, vec4(N, 1), depth, excludeIndex);
+
+		return refractionColor * (1 - kr) + reflectionColor * kr;
+	}
+
+}
+
+vec3 RefractRayColor(vec4 startPos, vec4 Incidence, vec4 Normal, float ior, int excludeIndex, int depth) {
+	vec3 I = Incidence;
+	vec3 N = Normal;
+	float cosI = std::fmaxf(-1, std::fminf(glm::dot(I, N), 1));
+	float etai = 1, etat = ior;
+	if (cosI < 0) { cosI = -cosI; } else { std::swap(etai, etat); N = -N; }
+	float eta = etai / etat;
+	float k = 1 - eta * eta*(1 - cosI * cosI);
+	vec4 refractionRay =  vec4(eta * I + (eta*cosI - sqrtf(k))*N,1);
+	Intersection ClosestIntersectionItem;
+
+	if (ClosestIntersection(startPos, refractionRay, testScene, ClosestIntersectionItem, excludeIndex)) {
+		if (ClosestIntersectionItem.triangleIndex != -1) {
+			if (depth > 0) {
+				vec3 color = (testScene[ClosestIntersectionItem.triangleIndex].color *
+					(DirectLight(ClosestIntersectionItem) + indirectLight))
+					+ Fresnel(ClosestIntersectionItem.position, refractionRay, testScene[ClosestIntersectionItem.triangleIndex].normal, testScene[ClosestIntersectionItem.triangleIndex].ior, ClosestIntersectionItem.triangleIndex, depth - 1);
+				return color;
+			} else {
+				vec3 color = (testScene[ClosestIntersectionItem.triangleIndex].color *
+					(DirectLight(ClosestIntersectionItem) + indirectLight));
+				return color;
+			}
+		} else {
+			if (depth > 0) {
+				vec4 NormalSphere = vec4(glm::normalize((vec3)(ClosestIntersectionItem.position - sphereCenter)), 1);
+				vec3 color = (sphereColor *
+					(DirectLight(ClosestIntersectionItem) + indirectLight))
+					+ Fresnel(ClosestIntersectionItem.position, refractionRay, NormalSphere, sphereIor, ClosestIntersectionItem.triangleIndex, depth - 1);
+				return color;
+			} else {
+				vec3 color = (sphereColor *
+					(DirectLight(ClosestIntersectionItem) + indirectLight));
+				return color;
+			}
+		}
+	} else {
+		return vec3(0, 0, 0);
+	}
+	
+}
+
+vec3 ReflectRayColor(vec4 startPos, vec4 incident, vec4 normal, int depth, int excludeIndex) {
+	vec4 dir;
+	vec3 I = incident;
+	vec3 N = normal;
+	dir = vec4(I - 2 * (glm::dot(N, I))*N, 1);
+	Intersection ClosestIntersectionItem;
+
+
+	if (ClosestIntersection(startPos, dir, testScene, ClosestIntersectionItem, excludeIndex)) {
+		if (ClosestIntersectionItem.triangleIndex != -1) {
+			if (depth > 0) {
+				float reflectance = testScene[ClosestIntersectionItem.triangleIndex].reflectance;
+				vec3 color = (1 - reflectance)*(testScene[ClosestIntersectionItem.triangleIndex].color *
+					(DirectLight(ClosestIntersectionItem) + indirectLight))
+					+ reflectance * (Fresnel(ClosestIntersectionItem.position, dir, testScene[ClosestIntersectionItem.triangleIndex].normal, testScene[ClosestIntersectionItem.triangleIndex].ior, ClosestIntersectionItem.triangleIndex, depth - 1));
+				return color;
+			} else {
+				vec3 color = (testScene[ClosestIntersectionItem.triangleIndex].color *
+					(DirectLight(ClosestIntersectionItem) + indirectLight));
+				return color;
+			}
+		} else {
+			if (depth > 0) {
+				vec4 NormalSphere = vec4(glm::normalize((vec3)(ClosestIntersectionItem.position - sphereCenter)), 1);
+				vec3 color = (1 - sphereReflectance)*(sphereColor *
+					(DirectLight(ClosestIntersectionItem) + indirectLight))
+					+ sphereReflectance * (Fresnel(ClosestIntersectionItem.position, dir, NormalSphere, sphereIor, ClosestIntersectionItem.triangleIndex, depth - 1));
+				return color;
+			} else {
+				vec3 color = (sphereColor *
+					(DirectLight(ClosestIntersectionItem) + indirectLight));
+				return color;
+			}
+		}
 	} else {
 		return vec3(0, 0, 0);
 	}
@@ -257,6 +391,37 @@ bool ClosestIntersection(vec4 start, vec4 dir, const vector<Triangle>& triangles
 			
 		}
 	}
+	vec3 L = (vec3)(start - sphereCenter);
+	float a = glm::dot((vec3)direction, (vec3)direction);
+	float b = 2 * glm::dot((vec3)direction, L);
+	float c = glm::dot(L,L) - sphereRadious * sphereRadious;
+	float discr = b * b - 4 * a*c;
+	if (discr > 0) {
+		discr = sqrtf(discr);
+		float t1 = (-b + discr) / (2 * a);
+		float t2 = (-b - discr) / (2 * a);
+		if (t1 < 0 && t2 < 0) return result;
+
+		if (t1 > t2 && t2>0.001f) std::swap(t1, t2);
+		if (closestIntersection.distance > t1 && t1>0.001f) {
+			closestIntersection.distance = t1;
+			closestIntersection.triangleIndex = -1;
+			closestIntersection.position = start + direction * t1;
+			result = true;
+		}
+		
+		
+	} else if (discr == 0) {
+		float t1 = (-b + discr) / (2 * a);
+		if (closestIntersection.distance > t1) {
+			closestIntersection.distance = t1;
+			closestIntersection.triangleIndex = -1;
+			closestIntersection.position = start + direction * t1;
+
+			result = true;
+		}
+	} 
+
 	return result;
 	
 }
